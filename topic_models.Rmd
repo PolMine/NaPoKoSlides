@@ -1,0 +1,134 @@
+---
+title: "Topic-Modelle"
+subtitle: 'Rezepte zur Term-Dokument-Matrizen'
+author: "Andreas Blaette, Christoph Leonhardt"
+date: "Stand: 27. November 2018"
+output:
+  ioslides_presentation:
+    css: css/stylesheet.css
+    logo: img/polmine.png
+    widescreen: yes
+  slidy_presentation: default
+editor_options:
+  chunk_output_type: console
+vignette: >
+  %\VignetteIndexEntry{Bag-of-Words}
+  %\VignetteEncoding{UTF-8}
+  %\VignetteEngine{knitr::rmarkdown}
+---
+
+## Vom 'bag-of-words' zur algorithmischen Textanalyse {.smaller}
+
+- In der quantitativen Textanalyse gibt es eine Reihe von Algorithmen, die als Grundlage eine Übersetzung von Texten in sogenannte Term-Dokument-Matrizen erfordern. Dies gilt etwa bei Topic-Modellen, aber auch für viele Verfahren des maschinellen Lernens oder für die in der Politikwissenschaft gängigen Wordscore- und Wordfish-Verfahren.
+
+- Term-Dokument-Matrizen beruhen auf einem sogenannten 'bag-of-words'-Ansatz: Indem ein Text in einen Vektor mit Zählungen von Worten übersetzt wird, wird dessen grammatikalische Struktur und einschließlich der Sequenz des Textes aufgelöst. Ein Term-Dokument-Matrix führt die Vektor-Repräsentation von Texten zusammen, mit den Worten in den Reihen und Dokumenten in den Spalten. Jede Zelle der Matrix gibt an, wie oft Wort i in Dokument j auftritt.
+
+- Technisch müssen Term-Dokument-Matrizen als "dünnbesetzte Matrix" (sparse matrix) realisiert werden, weil bei einem ausdifferenzierten Vokabular bei weitem nicht jedes Wort in jedem Dokument mindestens einmal auftrifft. Das *polmineR*-Paket nutzt dabei die `TermDocumentMatrix`-Klasse des *tm*-Pakets, die als geringfügige Modifikation aus der `simple_triplet_matrix` des *slam*-Pakets hervorgeht.
+
+
+## Initialisierung {.smaller}
+
+- Ein Teil der im folgenden verwendeten Funktionen (Berechnung aller Kookkurrenzen in einem Korpus/einer Partition) sind im *polmineR*-Paket ab Version 0.7.10.9006 enthalten. Bei Bedarf wird die polmineR-Entwicklungsversion installiert.
+
+- Die Beispiele des Foliensatzes basieren auf dem *GermaParl*-Korpus. Der Datensatz in dem Paket muss nach dem Laden von polmineR mit der `use()`-Funktion aktiviert werden.
+
+
+```{r initialize, eval = TRUE, message = FALSE}
+if (packageVersion("polmineR") < package_version("0.7.10.9006"))
+  devtools::install_github("PolMine/polmineR", ref = "dev")
+library(polmineR)
+use("GermaParl")
+```
+
+- Weitere hier verwendete Pakete werden falls erforderlich installiert und geladen.
+
+```{r, message = FALSE}
+for (pkg in c("magrittr", "slam", "tm", "quanteda", "Matrix")){
+  if (!pkg %in% rownames(installed.packages())) install.packages(pkg)
+  library(package = pkg, character.only = TRUE)
+}
+```
+
+
+## Schrumpfung der Matrix {.smaller}
+
+- Für die meisten Anwendungsszenarien (z.B. Topicmodelling) wird eine gänzlich ungefilterte Matrix unnötig gross sein, den Rechenaufwand unnötig erhöhen und durch "Rauschen" zu verunreinigten Ergebnissen führen. Es empfiehlt sich, eine Bereinigung um seltene Worte vorzunehmen, Rauschen und auch Worte auf einer Stopwort-Liste zu entfernen. 
+
+- Mit dem folgenden ersten Filter-Schritt entfernen wir zunächst Dokumente, die unterhalb einer geforderten Mindestlänge bleiben (hier: 100 Worte). Die Länge des Dokuments ermitteln wir durch Aufsummierung der Häufigkeit der Token in den Reihen (`row_sums`).
+
+```{r, eval = doit}
+short_docs <- which(slam::row_sums(dtm) < 100)
+if (length(short_docs) > 0) dtm <- dtm[-short_docs,]
+```
+
+- In einem zweiten Schritt identifizieren wir Worte, die seltener als 5-mal auftreten (`col_sums`). Diese Worte werden aus der Dokument-Term-Matrix (`dtm`) entfernt.
+
+```{r, eval = doit}
+rare_words <- which(slam::col_sums(dtm) < 5)
+if (length(rare_words) > 0) dtm <- dtm[,-rare_words]
+```
+
+
+## Weitere Filter-Schritte {.smaller}
+
+- Die `noise()`-Methode des *polmineR*-Pakets unterstützt die Identifikation "rauschiger" Worte in einem Vokabular (Token mit Sonderzeichen, Stopworte). Auch diese werden entfernt.
+
+```{r, eval = doit}
+noisy_tokens <- noise(colnames(dtm), specialChars = NULL, stopwordsLanguage = "de")
+noisy_tokens_where <- which(unique(unlist(noisy_tokens)) %in% colnames(dtm))
+dtm <- dtm[,-noisy_tokens_where]
+```
+
+- Nicht erfasst werden dabei Stopwörter, die groß geschrieben wurden, weil sie am Anfang eines Satzes stehen. Diese Fälle erfassen wir gesondert, indem wir eine Stopwort-Liste mit großen Anfangsbuchstaben generieren und anwenden.
+
+```{r, eval = doit}
+stopit <- tm::stopwords("de")
+stopit_upper <- paste(toupper(substr(stopit, 1, 1)), substr(stopit, 2, nchar(stopit)), sep = "")
+stopit_upper_where <- which(stopit_upper %in% colnames(dtm))
+if (length(stopit_upper_where) > 0) dtm <- dtm[, -stopit_upper_where]
+```
+
+
+## Berechnung eines Topic-Modells {.smaller}
+
+- Die durchgeführten Filter-Schritte können dazu führen, dass in der Matrix Dokumente verbleiben, für die aber tatsächlich keinerlei gezählte Token in der Matrix sind. Wir entfernen leere Dokumente, die in der Berechnung Probleme aufwerfen würden.
+
+```{r, eval = doit}
+empty_docs <- which(slam::row_sums(dtm) == 0)
+if (length(empty_docs) > 0) dtm <- dtm[-empty_docs,]
+```
+
+- Genug der Vorarbeit: Wir initiieren die "klassische" Berechnung eines *Latent Dirichlet Allocation*-Topic-Modells aus dem *lda*-Paket.
+
+```{r, eval = doit}
+lda <- topicmodels::LDA(
+  dtm, k = 200, method = "Gibbs",
+  control = list(burnin = 1000, iter = 3L, keep = 50, verbose = TRUE)
+)
+```
+
+```{r, echo = FALSE, eval = TRUE}
+if (doit == TRUE){
+  saveRDS(lda, file = "~/Lab/tmp/bt2015speeches_lds.RData")
+} else {
+  lda <- readRDS(file = "~/Lab/tmp/bt2015speeches_lds.RData")
+}
+```
+
+- Um das Ergebnis zu überprüfen, beziehen wir das Vokabular, welches die einzelnen Topics indiziert. Die Ausgabe erfolgt auf der folgenden Seite.
+
+```{r, echo = TRUE, eval = FALSE}
+lda_terms <- terms(lda, 10)
+```
+
+
+## Topic-Term-Matrix {.smaller}
+
+```{r, echo = FALSE, eval = TRUE, message = FALSE}
+n_terms <- 5L
+lda_terms <- terms(lda, n_terms)
+y <- t(lda_terms)
+colnames(y) <- paste("Term", 1:n_terms, sep = " ")
+DT::datatable(y)
+```
+

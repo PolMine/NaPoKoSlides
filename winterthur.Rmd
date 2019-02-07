@@ -1,0 +1,402 @@
+---
+title: "Korpusanalyse mit CWB und R"
+subtitle: 'polmineR - RcppCWB - cwbtools'
+author: "Andreas Blaette"
+date: "23. Januar 2019"
+output:
+  ioslides_presentation:
+    css: css/stylesheet.css
+    logo: img/polmine.png
+    widescreen: no
+editor_options:
+  chunk_output_type: console
+---
+
+```{r load_packges, eval = TRUE, message = FALSE, echo = FALSE}
+library(magrittr)
+```
+
+
+## polmineR, RcppCWB, cwbtools: Why? {.smaller}
+
+- Analyse von Korpora hält Einzug in Sozialwissenschaften: Adaption korpus- und computerlinguistischer Methoden
+
+- Etabliertes Angebot von Analyseumgebungen mit graphischer Benutzeroberfläche (WordSmith, Lexico3, CQPweb)
+
+- Etabliertes Angebot von Programmbibliotheken in verschiedenen Programmiersprachen (Python: NLTK, R: tm, quanteda)
+
+- Aber es gibt Grenzen ...
+
+  - der GUI-Angebote für Endanwender, quantitative Verfahren flexibel nutzen zu können,
+  - der quantitativ orientierten Pakete, eine Integration quantitativer und qualitativer Analyseschritte zu unterstützen (vgl. Morettis 'close' und 'distant reading')
+  - der Unterstützung linguistischer Annotationen (POS, NER, Lemmatisierung etc.: sprachadäquates Datenmodell gefragt).
+
+
+## Code und Pakete im Überblick {.smaller}
+
+- *polmineR*: Basis-Vokabular der Korpusanalyse
+
+- *RcppCWB*: Wrapper-Paket für die Corpus Workbench (Nachfolger von rcqp)
+
+- *cwbtools*: Tools zum Erstellen und zum Management CWB-indizierter Korpora
+
+Darüber hinaus: 
+
+- *GermaParl*: R-Paket zur Dissemination des GermaParl-Korpus
+- *frappp*: Framework for Parsing Plenary Protocols
+- *annolite*: Leichtgewichtiges Annotationstool
+- *gradget*: Annotation (dreidimensionaler) Kookkurrenz-Graphen
+- *topicanalysis*: Integration von quantitativer/qualitativer Arbeit mit Topic-Modellen
+
+
+##  Grundentscheidugen: R und CWB {.smaller}
+
+- R als statistische 'lingua franca' der Sozialwissenschaften:
+
+  - umfassende Implementierung statistischer Methoden
+  - Stärken bei der Visualisierung
+  - RStudio als IDE
+  - Rmarkdown und Ideal der "reproducible research"
+
+
+- CWB als klassisches Tool der Korpusanalyse
+
+  - Indizierung und Kompression von Korpora => Performanz
+  - Abfrage-Syntax des Corpus Query Processor (CQP)
+  - Offenes Lizenzmodell (GPL)
+
+- NoSQL / Lucene / Elasticsearch als Alternativen?
+
+
+## polmineR: Grundlegende Ziele
+
+* *Portabilität*: Barrierefreie Installation unter Windows, macOS, Linux
+
+* *Performanz*: Schnelle Auswertungen => mehr Interaktion mit Daten
+
+* *Quelloffenheit*: Keine restriktiven Lizenzbedingungen
+
+* *Theoriebindung*: Verbindung quantitativer und qualitativer Analyseschritte
+
+* *Dokumentation*: Offenlegung auch von Verfahren
+
+* *Nutzerfreundlichkeit*: Hohe "usability"
+
+
+
+## Installation und Initialisierung  {.smaller}
+
+- Die Pakete *polmineR* und *RcppCWB* sind bei CRAN verfügbar, *cwbtools* ist installierbar über GitHub.
+
+```{r installation, eval = FALSE, message = FALSE}
+install.packages("cwbtools")
+install.packages("polmineR")
+devtools::install_github("PolMine/cwbtools")
+```
+
+- Es steht ein einfacher Installationsmechanismus für Korpora zur Verfügung, die als Paket disseminiert werden.
+
+```{r install_corpus, eval = FALSE}
+drat::addRepo("polmine")
+install.packages("GermaParl")
+GermaParl::germaparl_download_corpus()
+```
+
+- Damit sind bereits die Voraussetzungen für eine Analyse-Sitzung erfüllt.
+
+```{r load_polmineR, eval = TRUE, message = FALSE}
+library(polmineR)
+use("GermaParl")
+```
+
+
+## Basis-Funktionen von polmineR
+
+- Anlegen von Subkorpora: *partition()*
+
+- Zählen: *hits()*, *count()*, *dispersion()* (vgl.: *size()*)
+
+- Konkordanzen: *kwic()*
+
+- Kookkurrenz-Analysen: *cooccuurrences()*, *Cooccurrences()*
+
+- Term-/Feature-Extraktion: *features()*
+
+- Term-Dokument-Matrizen: *as.sparseMatrix()*, *as.TermDocumentMatrix()*
+
+- Rekonstruktion des Volltexts (eines Subkorpus): *get_token_stream()*, *as.markdown()*, *as.html()*, *read()*
+
+
+## Subkorpora / Partitionen {.smaller}
+
+- Datenmodell der CWB: Differenzierung von positionalen und strukturellen Attributen
+
+- Abfrage des Metadaten ("structural attributes" / s_attributes )
+
+```{r}
+s_attributes("GERMAPARL")
+s_attributes("GERMAPARL", "party")
+```
+
+
+## Metadaten und Partitionen {.smaller}
+
+- Nutzung der Metadaten für Anlegen von Subkrpora / Partitionen
+
+```{r}
+p <- partition("GERMAPARL", year = 2001)
+m <- partition("GERMAPARL", speaker = "Merkel", regex = TRUE)
+```
+
+- Alle Analyse Methoden des Pakets können auf Korpora und Partitionen gleichermaßen angewendet werden.
+
+## Zählungen {.smaller}
+
+```{r}
+dt <- dispersion("GERMAPARL", query = "Flüchtlinge", s_attribute = "year")
+barplot(height = dt$count, names.arg = dt$year, las = 2, ylab = "Häufigkeit")
+```
+
+
+## Konkordanz- / KWIC-Analysen {.smaller}
+
+```{r, echo = FALSE}
+options("polmineR.pagelength" = 5L)
+```
+
+```{r, eval = TRUE, render = knit_print, message = TRUE}
+q <- '[pos = "NN"] "mit" "Migrationshintergrund"'
+kwic("GERMAPARL", query = q, cqp = TRUE, left = 10, right = 10)
+```  
+
+
+## Berechnung von Kookkurrenzen {.smaller}
+
+```{r, echo = FALSE}
+options("polmineR.pagelength" = 5L)
+```
+
+- Die `cooccurrences()`-Methode zur Berechnung von Kookkurrenzen kann auf Korpora als Ganzes angewendet werden, sowie auf `partition`-Objekte, die ein Subkorpus definieren.
+
+- Mit dem folgenden Befehlsaufruf werden die Kookkurrenzen zum Suchbegriff "Islam" berechnet, wobei hier ein Fenster von 10 Worten links und rechts des Suchtreffers genutzt wird.
+
+```{r coocs1, render = knit_print}
+cooccurrences("GERMAPARL", query = 'Islam', left = 10, right = 10)
+```
+
+
+## Filtern von Ergebnissen {.smaller}
+
+```{r filter_results, eval = TRUE}
+mmh_query <- '"Menschen" "mit" "Migrationshintergrund"'
+cooccurrences("GERMAPARL", query = mmh_query, p_attribute = c("word", "pos")) %>%
+  subset(count_coi >= 3) %>% 
+  subset(ll >= 11.83) %>%
+  subset(pos %in% c("NN", "ADJA")) %>%
+  sort(by = "ll") %>%
+  format() %>% DT::datatable(options = list(pageLength = 5L))
+```
+
+
+## Berechnung aller Kookkurrenzen {.smaller}
+
+- Effiziente (?) Methode zur Berechnung aller Kookkurrenzen im Korpus.
+
+```{r merkel, message = FALSE, eval = TRUE}
+m2008 <- partition("GERMAPARL", year = 2008, speaker = "Angela Merkel", interjection = FALSE)
+drop <- terms(m2008, p_attribute = "word") %>% noise() %>% unlist()
+coocs <- Cooccurrences(m2008, p_attribute = "word", left = 5L, right = 5L, stoplist = drop) %>% 
+  decode() %>% # 
+  ll() %>%
+  subset(ll >= 11.83) %>%
+  subset(ab_count >= 5)
+```
+
+
+## Kookkurrenz-Graphen {.smaller}
+
+- Visualisierung von Kookkurrenz-Analysen als Netzwerk als "eye catcher"
+
+```{r graphvis, echo = TRUE, eval = FALSE, message = FALSE}
+library(networkD3)
+library(igraph)
+G <- as_igraph(coocs)
+
+links <- as.data.frame(cbind(as_edgelist(G, names = FALSE), rep(1, length(E(G)))))
+links[,1] <- links[,1] - 1L
+links[,2] <- links[,2] - 1L 
+colnames(links) <- c("source", "target", "value")
+
+nodes <- data.frame(name = V(G)$name, group = rep(1, length(V(G)$name)), size = 3)
+
+forceNetwork(
+  Links = links, Nodes = nodes, Source = "source",
+  Target = "target", Value = "value", NodeID = "name",
+  Group = "group",
+  opacity = 0.75, fontSize = 20, zoom = TRUE
+)
+```
+
+
+## Netzwerk-Visualisierung
+
+```{r graphvis2, echo = FALSE, eval = TRUE, message = FALSE}
+library(networkD3)
+library(igraph)
+G <- as_igraph(coocs)
+
+links <- as.data.frame(cbind(as_edgelist(G, names = FALSE), rep(1, length(E(G)))))
+links[,1] <- links[,1] - 1L
+links[,2] <- links[,2] - 1L 
+colnames(links) <- c("source", "target", "value")
+
+nodes <- data.frame(name = V(G)$name, group = rep(1, length(V(G)$name)), size = 3)
+
+forceNetwork(
+  Links = links, Nodes = nodes, Source = "source",
+  Target = "target", Value = "value", NodeID = "name",
+  Group = "group",
+  opacity = 0.75, fontSize = 20, zoom = TRUE
+)
+```
+
+
+## Graph-Annotation {.smaller}
+
+<iframe title="Koehler" width="100%"  src="./widget_1.html" frameborder="0" scrolling="no" onload="resizeIframe(this)" padding="0em !important" margin-left="0 !important"></iframe>
+
+
+
+## Term-Extraktion {.smaller}
+
+```{r, echo = FALSE}
+options("polmineR.pagelength" = 5L)
+```
+
+- Auch das Ergebnis einer Zählung von N-Grammen mit der `ngrams()`-Methode führt zu einem Objekt mit Zählungen, und auch hier können wir features bestimmen. 
+
+```{r, message = FALSE}
+merkel_ngrams <- partition("GERMAPARL", speaker = "Merkel", year = 2008:2009, interjection = F, regex = T) %>%
+  polmineR::ngrams(n = 2, p_attribute = "word")
+```
+
+- Alle Reden als Referenz-Korpus.
+
+```{r, message = FALSE}
+bt_ngrams <- partition("GERMAPARL", year = 2008:2009, interjection = FALSE) %>%
+  polmineR::ngrams(n = 2, p_attribute = "word")
+```
+
+- Vergleich mit Chi-Square-Test.
+
+```{r, message = FALSE, eval = TRUE}
+y <- features(merkel_ngrams, bt_ngrams, included = TRUE) %>%
+  subset(count_coi >= 5) %>% subset(chisquare >= 10.83)
+```
+
+
+## Ergebnistabelle
+
+```{r, message = FALSE, echo = FALSE, render = knit_print}
+y
+```
+
+
+## Volltextausgabe {.smaller}
+
+```{r fulltext}
+partition("GERMAPARL", date = "2009-11-10", speaker = "Merkel", regex = TRUE, verbose = FALSE) %>%
+  html(height = "250px") %>%
+  highlight(list(yellow = c("Bundestag", "Regierung")))
+```
+
+
+
+## Implementierung und Perspektiven des Pakets {.smaller}
+
+* Rückgriff auf `data.table`-Paket => Performanz
+
+* Nutzung von C++/Rcpp für kritische Funktionen
+
+* S4-Klassensystem (nicht S3, R6): standard generics von R verfügbar
+
+* Benchmarking: Performanz im Vergleich (zu quanteda)?
+
+* Weiterentwicklung der Annotations-Tools
+
+* Weiterentwicklung shiny-App
+
+
+## polmineR: Klassendiagramm
+
+```{r, echo = FALSE, message = FALSE}
+library(plantuml)
+```
+
+
+```{r, echo =FALSE, message = FALSE}
+x <- '
+textstat ..|> count
+textstat ..|> features
+count ..|> partition
+features ..|> context
+context ..|> cooccurrences
+features ..|> features_cooccurrences
+features ..|> features_ngrams
+count ..|> ngrams
+textstat ..|> hits
+partition ..|> plpr_partition
+partition ..|> press_partition
+
+class textstat{
+  corpus: character
+  encoding: character
+  stat: data.table
+}
+
+corpus ..|> regions
+regions ..|> subcorpus
+
+class corpus {
+  registry: character
+  encoding: character
+  summary()
+  str()
+}
+
+class regions {
+  cpos: matrix
+  s_attribute_strucs: character
+  count()
+}
+
+class subcorpus {
+  s_attribute_strucs: character
+  count()
+  dispersion()
+}
+
+
+'
+x <- plantuml(x)
+```
+
+```{r, echo = FALSE, message = FALSE}
+plot(x, vector = TRUE)
+```
+
+## Nächste Schritte
+
+- Konsistenz der Klassensystems (partition -> subcorpus?)
+
+- Konsolidierung der Dokumentation, Überblickende Darstellung des Pakets / der Pakete in Artikeln
+
+- Konsolidierung von cwbtools: Tutorials für Erstellung eigener Korpora
+
+- Weiterentwicklung der UCSSR-Foliensätze ("Using Corpora in Social Science Research")
+
+- Portierung nach Python?
+
+- Inhaltlich ausgerichtete Projekte:
+  - PopParl
+  - MIDEM

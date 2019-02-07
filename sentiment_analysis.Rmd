@@ -1,0 +1,328 @@
+---
+title: "Text Mining politischer Kommunikation"
+subtitle: 'Sentiment-Analyse'
+author: "Andreas Blaette"
+date: "7. Februar 2019"
+output:
+  ioslides_presentation:
+    css: css/stylesheet.css
+    logo: img/polmine.png
+    widescreen: yes
+  slidy_presentation: default
+editor_options:
+  chunk_output_type: console
+---
+
+## Grundlagen der Sentiment-Analyse
+
+* Grundfrage von Sentiment-Analysen: Wie ist die Stimmung (bezogen auf Objekt X)?
+
+* Einsatzszenarien:
+  - Prognose von Aktienkursen
+  - Produktbewertungen (z.B. im Netz: Social Media Monitoring)
+  - Gutes/schlechtes Charma (Sentiment-Analysen zu tweets von Trump)
+
+* Grundlegende Spielformen der Sentiment-Analyse:
+  - _diktionärsbasierte_ Verfahren messen anhand von Listen mit positivem / negativem Vokabular
+  - _machine learning_-basierte Verfahren klassifizieren mit einem Modell, das trainiert wurde
+
+
+
+
+## Vorbereitungen {.smaller}
+
+Die folgenden Erläuterungen nutzen das `polmineR`-Paket und das `GermaParl`-Korpus.
+
+```{r ensure_packages, eval = TRUE}
+if (!"polmineR" %in% rownames(installed.packages())) install.packages("polmineR")
+drat::addRepo("polmine")
+if (!"GermaParl" %in% rownames(installed.packages())) install.packages("GermaParl")
+if (!"GERMAPARL" %in% polmineR::corpus()[["corpus"]]) GermaParl::germaparl_download_corpus()
+```
+
+Ergänzend nutzen wir die folgenden Pakete:
+
+  * `zoo`: Ein Paket zur Arbeit mit Zeitreihen-Daten;
+  * `magrittr`: Tools, um R-Befehle in einer "Pipe"" hintereinander zu verketten (s.u.);
+  * `devtools`: Entwicklertools, wir nutzen einen Befehl für den Download einer einzelnen Funktion;
+
+```{r install_required_packages, eval = TRUE}
+required_packages <- c("zoo", "magrittr", "devtools")
+for (pkg in required_packages)
+  if (!pkg %in% rownames(installed.packages())) install.packages(pkg)
+```
+
+
+## Los geht's {.smaller}
+
+* Laden der erforderlichen Pakete.
+
+```{r load_libraries, eval = TRUE, warning = FALSE}
+library(zoo, quietly = TRUE, warn.conflicts = FALSE)
+library(devtools, quietly = TRUE)
+library(magrittr, quietly = TRUE)
+library(data.table, quietly = TRUE)
+library(xts, quietly = TRUE)
+```
+
+* Laden auch polmineR und aktivieren des GermaParl-Korpus.
+
+```{r load_polmineR, eval = TRUE, message = FALSE}
+library(polmineR)
+use("GermaParl")
+```
+
+
+## Wir holen 'get_sentiws' von GitHub
+
+- Nutzung des Sentiment-Wortschatz des Leipziger Wortschatz-Projekts, kurz [SentiWS](http://wortschatz.uni-leipzig.de/de/download). (Lizenz: CC-BY-SA-NC)
+
+- Zum vereinfachten Einlesen von SentiWS: Gist bei der GitHub-Präsenz des PolMine-Projekts mit Funktion, die  Download erledigt und tabellarische Datenstruktur generiert.
+
+```{r get_senti_ws, eval = TRUE, message = FALSE}
+gist_url <- "https://gist.githubusercontent.com/PolMine/70eeb095328070c18bd00ee087272adf/raw/c2eee2f48b11e6d893c19089b444f25b452d2adb/sentiws.R"
+devtools::source_url(gist_url) # danach ist Funktion verfügbar
+SentiWS <- get_sentiws()
+```
+
+- Damit ist mit dem Objekt `SentiWS` das Diktionär verfügbar.
+
+
+## SentiWS: Ein Blick in die Daten {.smaller}
+
+
+```{r inspect_senti_ws, eval = TRUE, warning = FALSE, echo = FALSE}
+SentiWS %>% DT::datatable()
+```
+
+
+
+## Positives/negatives Vokabular in Wortkontext {.smaller}
+
+- Frage: Wie haben sich die positiven/negativen Konnotationen des "Islams" im Zeitverlauf entwickelt?
+
+- Wir gehen von 10 Worten aus und setzen dies folgendermaßen für unsere R-Sitzung fest.
+
+```{r}
+options("polmineR.left" = 10L)
+options("polmineR.right" = 10L)
+```
+
+- Über eine "Pipe" generieren wir nun einen `data.frame` ("df") mit den Zählungen des SentiWS-Vokabulars im Wortumfeld von "Islam".
+
+```{r, echo = TRUE}
+df <- context("GERMAPARL", query = "Islam", p_attribute = c("word", "pos"), verbose = FALSE) %>%
+  partition_bundle(node = FALSE) %>%
+  set_names(s_attributes(., s_attribute = "date")) %>%
+  weigh(with = SentiWS) %>% summary()
+```
+
+
+## Tabellarische Daten der Sentiment-Analyse {.smaller}
+
+- Wir arbeiten zunächst nicht mit den Gewichtungen, sondern nur mit dem positiven bzw. negativen Worten. Hier die vereinfachte Tabelle
+
+```{r}
+df <- df[, c("name", "size", "positive_n", "negative_n")] 
+head(df, n = 12)
+```
+
+
+## Aggregation {.smaller}
+
+- Als Namen eines Wortkontexts haben wir oben das Datum des Auftretens unseres Suchbegriffs genutzt. Das ermöglicht es, anhand des Datums für das Jahr hochzuaggregieren.
+
+```{r}
+df[["year"]] <- as.Date(df[["name"]]) %>% format("%Y-01-01")
+df_year <- aggregate(df[,c("size", "positive_n", "negative_n")], list(df[["year"]]), sum)
+colnames(df_year)[1] <- "year"
+```
+
+- Es ist nicht sinnvoll, mit absoluten Häufigkeiten zu arbeiten. Daher fügen wir Spalten ein, die den Anteil des negativen bzw. positiven Vokabulars angeben.
+
+```{r}
+df_year$negative_share <- df_year$negative_n / df_year$size
+df_year$positive_share <- df_year$positive_n / df_year$size
+```
+
+- Dies wandeln wir in ein Zeitreihen-Objekt um.
+
+```{r}
+Z <- zoo(
+  x = df_year[, c("positive_share", "negative_share")],
+  order.by = as.Date(df_year[,"year"])
+)
+```
+
+
+## Visualisierung {.smaller}
+
+```{r, echo = FALSE}
+plot(
+  Z, ylab = "polarity", xlab = "year", main = "Word context of 'Islam': Share of positive/negative vocabulary",
+  cex = 0.8, cex.main = 0.8
+)
+```
+
+
+## Wie gut sind eigentlich die Ergebnisse? {.smaller}
+
+- Was verbirgt sich eigentlich hinter den numerischen Werten der ermittelten Sentiment-Scores?
+
+- Wir nutzen die Möglichkeit von polmineR, eine KWIC-Ausgabe entsprechend einer Positiv-Liste (Vektor mit erforderlichen Worten) zu reduzieren, Worte farblich zu codieren und über Tooltips (hier: Wortgewichte) weitergehende Informationen einzublenden.
+
+```{r, eval = TRUE}
+words_positive <- SentiWS[weight > 0][["word"]]
+words_negative <- SentiWS[weight < 0][["word"]]
+```
+
+```{r, eval = FALSE, message = FALSE}
+kwic("GERMAPARL", query = "Islam", positivelist = c(words_positive, words_negative)) %>%
+  highlight(lightgreen = words_positive, orange = words_negative) %>%
+  tooltips(setNames(SentiWS[["word"]], SentiWS[["weight"]]))
+```
+
+- Das Ergebnis (ein 'htmlwidget') folgt auf der nächsten Folie.
+
+
+## Sentiment-Analyse: Qualitative Evaluation {.smaller}
+
+```{r, eval = TRUE, echo = FALSE, message = FALSE, render = knit_print}
+options("polmineR.pagelength" = 7L)
+kwic("GERMAPARL", query = "Islam", positivelist = c(words_positive, words_negative)) %>%
+  highlight(lightgreen = words_positive, orange = words_negative) %>%
+  tooltips(setNames(SentiWS[["word"]], SentiWS[["weight"]]))
+```
+
+
+## Rezept: Sentiment-Analyse über Partition {.smaller}
+
+- Die strukturelle Annotation CWB-indizierter Korpora macht es in Kombination mit der `partition()`-Methode leicht, das skizziert Verfahren für die Sentiment-Analyse auf Subkorpora anzuwenden, so dass Bewertungsunterschiede (z.B. zwischen Fraktionen und Parteien) analysiert werden können. Im folgenden Beispiel schränken wir das GermaParl-Korpus auf die Redner von CDU und CSU ein.
+
+```{r, message = FALSE}
+p <- partition("GERMAPARL", parliamentary_group = "CDU/CSU", interjection = FALSE)
+```
+
+- In einem etwas gestrafften Verfahren generieren wird die Daten für die Sentiment-Analyse. Zuerst generieren wir den `data.frame` mit den absoluten Zählungen.
+
+```{r}
+df <- context(p, query = "Islam", p_attribute = c("word", "pos"), verbose = FALSE) %>%
+  partition_bundle(node = FALSE) %>%
+  set_names(s_attributes(., s_attribute = "date")) %>%
+  weigh(with = SentiWS) %>%
+  summary() %>%
+  subset(select = c("name", "size", "positive_n", "negative_n"))
+```
+
+
+## Aggregation {.smaller}
+
+- Daraus wird nun ein Zeitreihen-Objekt.
+
+```{r}
+time_index <- as.Date(df[["name"]]) # 
+df[["name"]] <- NULL # Spalte 'name' nicht mehr benötig, wird gelöscht
+tseries <- as.xts(df, order.by = time_index) # Umwandlung in Zeitreihen-Objekt
+```
+
+- Wir führen jetzt eine wiederverwendbare Funktion zur Aggregation der Zeitreihen ein. Mit dieser kann man nach "week", "month", "quarter" oder "year" aggregieren.
+
+```{r}
+aggregate_time_series <- function(x, aggregation){
+  y <- switch(
+    aggregation,
+    week = aggregate(x, {a <- lubridate::ymd(paste(lubridate::year(index(x)), 1, 1, sep = "-")); lubridate::week(a) <- lubridate::week(index(x)); a}),
+    month = aggregate(x, as.Date(as.yearmon(index(x)))),
+    quarter = aggregate(x, as.Date(as.yearqtr(index(x)))),
+    year = aggregate(x, as.Date(sprintf("%s-01-01", gsub("^(\\d{4})-.*?$", "\\1", index(x)))))
+    )
+  y$negative_share <- -1 * (y$negative_n / y$size)
+  y$positive_share <- y$positive_n / y$size
+  as.xts(y)
+}
+```
+
+
+## Aggregationsniveau Jahr {.smaller}
+
+<div class="columns-2">
+
+- In einem ersten Durchlauf sehen wir das Ergebnis auf dem Ergebnis des Aggregationsniveau eines Jahres an.
+
+```{r}
+aggr <- aggregate_time_series(tseries, "year")
+```
+
+- Wir erzeugen ein Zeitreihen-Digramm.
+
+```{r, fig.height = 4, fig.width = 4}
+plot(
+  aggr[,c("positive_share", "negative_share")],
+  multi.panel = FALSE,
+  ylab = "polarity",
+  xlab = "year",
+  main = "year",
+  cex = 0.5,
+  cex.main = 0.5,
+  ylim = c(-0.05, 0.05)
+  )
+```
+
+</div>
+
+
+## Verschiedene Aggregationen {.smaller}
+
+- Um den Vergleich verschiedener Aggregationen zu haben zeigt die folgende Folie die Aggregation nach Woche, Monat, Quartal und Jahr.
+
+```{r, eval = FALSE}
+par(mfrow = c(2,2))
+for (aggregation_level in c("week", "month", "quarter", "year")){
+  x <- aggregate_time_series(tseries, aggregation_level)
+  x <- x[,c("positive_share", "negative_share")]
+  
+  y <- plot(
+    x,
+    multi.panel = FALSE,
+    ylab = "polarity",
+    xlab = "year",
+    main = aggregation_level,
+    cex = 0.3,
+    cex.main = 0.3,
+    ylim = c(-0.05, 0.05),
+    type = "l"
+  )
+  show(y)
+}
+```
+
+
+## Sentiment-Analyse zu "Islam" | Aggregation nach Woche, Monat, Quartal, Jahr {.flexbox .vcenter}
+
+```{r, echo = FALSE, fig.height = 4}
+par(mfrow = c(2,2))
+for (aggregation_level in c("week", "month", "quarter", "year")){
+  x <- aggregate_time_series(tseries, aggregation_level)
+  x <- x[,c("positive_share", "negative_share")]
+  
+  y <- plot(
+    x,
+    multi.panel = FALSE,
+    ylab = "polarity",
+    xlab = "year",
+    main = aggregation_level,
+    cex = 0.3,
+    cex.main = 0.3,
+    ylim = c(-0.05, 0.05),
+    type = "l"
+  )
+  show(y)
+}
+```
+
+
+## Diskussion
+
+  * Wir interpretieren Sie die Ergebnisse der Zeitreihen-Analyse?
+  * Wie valide sind die Ergebnisse?
+  * Ist der Übergang zur Arbeit mit Wort-Gewichten sinnvoll oder erforderlich?
