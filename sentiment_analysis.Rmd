@@ -1,6 +1,6 @@
 ---
-title: "Text Mining politischer Kommunikation"
-subtitle: 'Sentiment-Analyse'
+title: "(Tücken der) Sentiment-Analyse"
+subtitle: "NaPoKo-Workshop"
 author: "Andreas Blaette"
 date: "7. Februar 2019"
 output:
@@ -27,8 +27,6 @@ editor_options:
   - _machine learning_-basierte Verfahren klassifizieren mit einem Modell, das trainiert wurde
 
 
-
-
 ## Vorbereitungen {.smaller}
 
 Die folgenden Erläuterungen nutzen das `polmineR`-Paket und das `GermaParl`-Korpus.
@@ -37,7 +35,6 @@ Die folgenden Erläuterungen nutzen das `polmineR`-Paket und das `GermaParl`-Kor
 if (!"polmineR" %in% rownames(installed.packages())) install.packages("polmineR")
 drat::addRepo("polmine")
 if (!"GermaParl" %in% rownames(installed.packages())) install.packages("GermaParl")
-if (!"GERMAPARL" %in% polmineR::corpus()[["corpus"]]) GermaParl::germaparl_download_corpus()
 ```
 
 Ergänzend nutzen wir die folgenden Pakete:

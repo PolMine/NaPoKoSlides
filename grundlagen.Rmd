@@ -1,0 +1,171 @@
+---
+title: "Text Mining 101"
+subtitle: "NaPoKo-Workshop"
+author: "Andreas Blaette"
+date: "7. Februar 2019"
+output:
+  ioslides_presentation:
+    css: css/stylesheet.css
+    logo: img/polmine.png
+    widescreen: no
+    incremental: false
+  slidy_presentation: default
+editor_options:
+  chunk_output_type: console
+---
+
+## Plan und Ablauf {.smaller}
+
+- Vorstellrunde / Erwartungen
+- Zum PolMine-Projekt
+- Text Mining - Hardware - Software
+- Datengrundlagen für das TextMining
+- Text Mining: Methoden im Überblick
+- Erkundung ausgewählter Methoden:
+  * Zählen und diktionärsbasierte Methoden
+  * Sentiment-Analysen
+  * Topic-Modelle
+  * Word Embeddings
+  * Machine Learning
+
+
+## PolMine Project
+
+- Daten
+  - Plenarprotokollkorpora: GermaParl, RegioParl
+  - Zeitungskorpora, Pressemitteilungen etc.
+- Code-Basis (R-Pakete, bei CRAN & GitHub)
+- Tutorials (UCSSR)
+- Forschungsprojekte
+  - MigTex
+  - MIDEM
+  - PopParl
+- CLARIN-Zentrum (Kategorie C)
+
+
+## Code und Pakete im Überblick {.smaller}
+
+- Korpusanalyse mit R und Corpus Workbench (CWB)
+  - *polmineR*: Basis-Vokabular der Korpusanalyse (portabel, performant, quelloffen, theoriegebunden, dokumentiert, nutzerfreundlich)
+  - *RcppCWB*: Wrapper-Paket für die Corpus Workbench (Nachfolger von rcqp)
+  - *cwbtools*: Tools zum Erstellen und zum Management CWB-indizierter Korpora
+
+
+- Darüber hinaus: 
+  - *GermaParl*: R-Paket zur Dissemination des GermaParl-Korpus
+  - *frappp*: Framework for Parsing Plenary Protocols
+  - *annolite*: Leichtgewichtiges Annotationstool
+  - *gradget*: Annotation (dreidimensionaler) Kookkurrenz-Graphen
+  - *topicanalysis*: Integration von quantitativer/qualitativer Arbeit mit Topic-Modellen
+
+
+## Installation und Initialisierung  {.smaller}
+
+- Die Pakete *polmineR* und *RcppCWB* sind bei CRAN verfügbar, *cwbtools* ist installierbar über GitHub.
+
+```{r installation, eval = FALSE, message = FALSE}
+install.packages("cwbtools")
+install.packages("polmineR")
+devtools::install_github("PolMine/cwbtools")
+```
+
+- Es steht ein einfacher Installationsmechanismus für Korpora zur Verfügung, die als Paket disseminiert werden.
+
+```{r install_corpus, eval = FALSE}
+drat::addRepo("polmine")
+install.packages("GermaParl")
+GermaParl::germaparl_download_corpus()
+```
+
+- Damit sind bereits die Voraussetzungen für eine Analyse-Sitzung erfüllt.
+
+```{r load_polmineR, eval = TRUE, message = FALSE}
+library(polmineR)
+use("GermaParl")
+```
+
+
+## Basis-Funktionen von polmineR
+
+- Anlegen von Subkorpora: *partition()*
+
+- Zählen: *hits()*, *count()*, *dispersion()* (vgl.: *size()*)
+
+- Konkordanzen: *kwic()*
+
+- Kookkurrenz-Analysen: *cooccuurrences()*, *Cooccurrences()*
+
+- Term-/Feature-Extraktion: *features()*
+
+- Term-Dokument-Matrizen: *as.sparseMatrix()*, *as.TermDocumentMatrix()*
+
+- Rekonstruktion des Volltexts (eines Subkorpus): *get_token_stream()*, *as.markdown()*, *as.html()*, *read()*
+
+
+## Text Mining: Versuch einer Verortung {.build}
+
+- Big Data (prozessgeneriert, dreckig, alles)
+- Data Mining
+- Text Mining
+- Machine Learning, Künstliche Intelligenz (KI)
+- eHumanities
+- digital humanities
+- Natural Language Processing (NLP)
+- Disziplinen: Korpus- und Computerlinguistik, Informatik, Statistik, ...
+
+
+## Inhaltsanalytische Traditionen
+
+- quantifizierende Inhaltsanalyse
+- qualitative Inhaltsanalyse ("Mayring")
+
+- vgl. *"The emergence of the computer has made it feasible for social and behavioral scientists to make a fresh start on content analysis. The vast potentialities of content analysis, though foreseen form some years, have been poorly realized, owing chiefly to the onerous task of scanning texts and processing data. The latter operation -- data processing -- has been successfully improved, and there is a promise of automatic scanners that, when appropriately joined with panels of human judges, will accelerate the turning of raw records into data."* (Stone et al. 1966)
+
+
+## Hard- und Software {.build}
+
+- Programmiersprachen
+  - Perl (reguläre Ausdrücke)
+  - Java (NLP)
+  - Python (maschinelles Lernen)
+  - R (Statisik und Visualisierung)
+  - C (Performanz)
+  - JavaScript (Web-Applikationen)
+
+- IDEs nutzen! Beispiel: RStudio
+- Was kann mein Rechner?
+
+## Grundlagen der Datenaufbereitung
+
+- Idealfall: Plain Text Files (*.txt)
+- Web Scraping (*.html)
+  - statisch vs. dynamisch generierte Seiten
+  - Tools in R: xml2, rvest
+- pdf-Verarbeitung (*.pdf)
+  - pdf2txt mit pdftools (-> poppler)
+  - für Tabellen: tabulizer
+  - Tücken der Optical Character Recognition (OCR): ABBYY, tesseract
+- Einlesen von Daten: tm, quanteda, tidytext 
+
+
+## Die Lizenzfrage
+
+- gemeinfreie Materialien (z.B. Plenarprotokolle)
+- *Creative Commons*-Lizenzen (CC): z.B. CC-BY-SA-NC
+- Zeitungsverlage:
+  - FAZ, SZ, taz & more
+  - NEXIS
+- Text Mining-Klausel des neuen Urheberrechts
+
+
+## Die Besonderheiten der Genres
+
+- Zeitungsberichte
+- Plenarprotokolle
+- Pressemitteilungen
+- tweets
+- facebook
+- Radio-Beiträge
+- Alltagskommunikation
+- die multimodale Herausforderung (BILD!) 
+

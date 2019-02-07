@@ -1,8 +1,8 @@
 ---
 title: "Alle Worte sind gleich?"
-subtitle: 'Term-Extraktion mit polmineR'
+subtitle: 'NaPoKo-Workshop "Text Mining'
 author: "Andreas Blaette"
-date: "Stand: 19. November 2018"
+date: "7. Februar 2019"
 output:
   ioslides_presentation:
     css: css/stylesheet.css
@@ -11,10 +11,6 @@ output:
   slidy_presentation: default
 editor_options:
   chunk_output_type: console
-vignette: >
-  %\VignetteIndexEntry{Sag mir welche Nachbarschaft Du hast}
-  %\VignetteEncoding{UTF-8}
-  %\VignetteEngine{knitr::rmarkdown}
 ---
 
 ## Zur Ermittlung der Ungleichheit des Vokabulars {.smaller}
@@ -123,7 +119,7 @@ is(coi)
 - Den Vergleich besorgt die angekündigte `features()`-Methode.
 
 ```{r, render = knit_print}
-f <- features(coi, ref)
+f <- polmineR::features(coi, ref)
 ```
 
 - Für das `features`-Objekt können generische-Methoden wie `as.data.frame()`, `dim()`, `nrow()`, `ncol()`, `colnames()` etc. angewandt werden. Über die `nrow()`-Methode verschaffen wir uns einen Eindruck, wie viele Zeilen eigentlich die Tabelle hat.
@@ -172,7 +168,7 @@ ref <- partition("GERMAPARL", year = 2002:2015, interjection = FALSE) %>% count(
 - Die Berechnung der *features* weicht zunächst nicht von dem bereits bekannten Muster ab. Den Ausschluss niedrigfrequenter Worte die Anwendung des Schwellenwerts für eine 0,1%-Irrtumswahrscheintlichkeit nehmen wir vor.
 
 ```{r, message = FALSE}
-f <- features(coi, ref) %>% subset(count_coi >= 5) %>% subset(chisquare >= 10.83)
+f <- polmineR::features(coi, ref) %>% subset(count_coi >= 5) %>% subset(chisquare >= 10.83)
 ```
 
 - Allerdings können wir nun auch noch nach der POS-Annotation (hier: Nomen, "NN") filtern.
@@ -206,7 +202,7 @@ bt <- partition("GERMAPARL", year = 2008:2009, interjection = FALSE) %>%
 - Beim Aufruf der `features()`-Methode setzen wir das Argument `included` auf `TRUE`. 
 
 ```{r, features = FALSE, message = FALSE}
-am_features <- features(merkel, bt, included = TRUE)
+am_features <- polmineR::features(merkel, bt, included = TRUE)
 ```
 
 
@@ -273,7 +269,7 @@ bt_ngrams <- partition("GERMAPARL", year = 2008:2009, interjection = FALSE) %>%
 ```
 
 ```{r, message = FALSE, eval = FALSE}
-features(merkel_ngrams, bt_ngrams, included = TRUE) %>%
+polmineR::features(merkel_ngrams, bt_ngrams, included = TRUE) %>%
   subset(count_coi >= 5) %>% subset(chisquare >= 10.83)
 ```
 
@@ -285,7 +281,7 @@ options("polmineR.pagelength" = 10L)
 ```
 
 ```{r, message = FALSE, eval = TRUE, echo = FALSE, render = knit_print}
-features(merkel_ngrams, bt_ngrams, included = TRUE) %>%
+polmineR::features(merkel_ngrams, bt_ngrams, included = TRUE) %>%
   subset(count_coi >= 5) %>% subset(chisquare >= 10.83)
 ```
 
@@ -305,7 +301,7 @@ bt_ngrams <- partition("GERMAPARL", lp = 17, interjection = FALSE) %>%
 - Wir führen die feature-Extraktion durch und wandeln das Ergebnis in ein `data.table`-Objekt um, das wir noch ein wenig formatieren.
 
 ```{r, message = FALSE}
-dt <- features(merkel_ngrams, bt_ngrams, included = TRUE) %>% data.table::as.data.table()
+dt <- polmineR::features(merkel_ngrams, bt_ngrams, included = TRUE) %>% data.table::as.data.table()
 dt <- subset(dt, dt[["1_pos"]] == "ADJA") %>% subset(.[["2_pos"]] == "NN") 
 dt[,"1_pos" := NULL][,"2_pos" := NULL][,"exp_coi" := round(exp_coi, 2)][, "chisquare" := round(chisquare, 2)]
 ```
@@ -332,7 +328,7 @@ non_cdu_ngrams <- partition("GERMAPARL", party = c("SPD", "FDP", "LINKE", "GRUEN
 
 cdu_ngrams <- subset(cdu_ngrams, count >= 5) # vorgezogen
 
-f <- features(cdu_ngrams, non_cdu_ngrams, included = FALSE)
+f <- polmineR::features(cdu_ngrams, non_cdu_ngrams, included = FALSE)
 f <- subset(f, chisquare >= 10.83)
 ```
 

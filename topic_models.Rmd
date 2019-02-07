@@ -56,14 +56,14 @@ for (pkg in c("magrittr", "slam", "tm", "quanteda", "Matrix")){
 
 - Mit dem folgenden ersten Filter-Schritt entfernen wir zunächst Dokumente, die unterhalb einer geforderten Mindestlänge bleiben (hier: 100 Worte). Die Länge des Dokuments ermitteln wir durch Aufsummierung der Häufigkeit der Token in den Reihen (`row_sums`).
 
-```{r, eval = doit}
+```{r, eval = TRUE}
 short_docs <- which(slam::row_sums(dtm) < 100)
 if (length(short_docs) > 0) dtm <- dtm[-short_docs,]
 ```
 
 - In einem zweiten Schritt identifizieren wir Worte, die seltener als 5-mal auftreten (`col_sums`). Diese Worte werden aus der Dokument-Term-Matrix (`dtm`) entfernt.
 
-```{r, eval = doit}
+```{r, eval = TRUE}
 rare_words <- which(slam::col_sums(dtm) < 5)
 if (length(rare_words) > 0) dtm <- dtm[,-rare_words]
 ```
@@ -73,7 +73,7 @@ if (length(rare_words) > 0) dtm <- dtm[,-rare_words]
 
 - Die `noise()`-Methode des *polmineR*-Pakets unterstützt die Identifikation "rauschiger" Worte in einem Vokabular (Token mit Sonderzeichen, Stopworte). Auch diese werden entfernt.
 
-```{r, eval = doit}
+```{r, eval = TRUE}
 noisy_tokens <- noise(colnames(dtm), specialChars = NULL, stopwordsLanguage = "de")
 noisy_tokens_where <- which(unique(unlist(noisy_tokens)) %in% colnames(dtm))
 dtm <- dtm[,-noisy_tokens_where]
@@ -81,7 +81,7 @@ dtm <- dtm[,-noisy_tokens_where]
 
 - Nicht erfasst werden dabei Stopwörter, die groß geschrieben wurden, weil sie am Anfang eines Satzes stehen. Diese Fälle erfassen wir gesondert, indem wir eine Stopwort-Liste mit großen Anfangsbuchstaben generieren und anwenden.
 
-```{r, eval = doit}
+```{r, eval = TRUE}
 stopit <- tm::stopwords("de")
 stopit_upper <- paste(toupper(substr(stopit, 1, 1)), substr(stopit, 2, nchar(stopit)), sep = "")
 stopit_upper_where <- which(stopit_upper %in% colnames(dtm))
@@ -93,14 +93,14 @@ if (length(stopit_upper_where) > 0) dtm <- dtm[, -stopit_upper_where]
 
 - Die durchgeführten Filter-Schritte können dazu führen, dass in der Matrix Dokumente verbleiben, für die aber tatsächlich keinerlei gezählte Token in der Matrix sind. Wir entfernen leere Dokumente, die in der Berechnung Probleme aufwerfen würden.
 
-```{r, eval = doit}
+```{r, eval = TRUE}
 empty_docs <- which(slam::row_sums(dtm) == 0)
 if (length(empty_docs) > 0) dtm <- dtm[-empty_docs,]
 ```
 
 - Genug der Vorarbeit: Wir initiieren die "klassische" Berechnung eines *Latent Dirichlet Allocation*-Topic-Modells aus dem *lda*-Paket.
 
-```{r, eval = doit}
+```{r, eval = TRUE}
 lda <- topicmodels::LDA(
   dtm, k = 200, method = "Gibbs",
   control = list(burnin = 1000, iter = 3L, keep = 50, verbose = TRUE)
@@ -108,7 +108,7 @@ lda <- topicmodels::LDA(
 ```
 
 ```{r, echo = FALSE, eval = TRUE}
-if (doit == TRUE){
+if (TRUE){
   saveRDS(lda, file = "~/Lab/tmp/bt2015speeches_lds.RData")
 } else {
   lda <- readRDS(file = "~/Lab/tmp/bt2015speeches_lds.RData")

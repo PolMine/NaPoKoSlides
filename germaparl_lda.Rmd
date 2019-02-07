@@ -1,0 +1,97 @@
+---
+title: "Topic Model zu GermaParl"
+subtitle: 'NaPoKo-Workshop "Text Mining"'
+author: "Andreas Blaette, Christoph Leonhardt"
+date: "Stand: 27. November 2018"
+output:
+  ioslides_presentation:
+    css: css/stylesheet.css
+    logo: img/polmine.png
+    widescreen: yes
+  slidy_presentation: default
+editor_options:
+  chunk_output_type: console
+---
+
+## LDA Topic Model zum GermaParl-Korpus
+
+- Initialisieren von Bibliotheken
+
+```{r, eval = TRUE}
+library(polmineR)
+library("GermaParl")
+library(topicmodels)
+```
+
+- Laden des (optimierten) Topic Model
+
+```{r, eval = TRUE}
+# GermaParl::germaparl_download_lda(k = 250L)
+lda <- germaparl_load_topicmodel(k = 250)
+x <- terms(lda, 50)
+```
+
+
+## Spalten 1-5 {.smaller}
+
+```{r, echo = FALSE}
+DT::datatable(x[,1:5])
+```
+
+
+## Spalten 6-9 {.smaller}
+
+```{r, echo = FALSE}
+DT::datatable(x[,6:9])
+```
+
+## Spalten 10-14 {.smaller}
+
+```{r, echo = FALSE}
+DT::datatable(x[,10:14])
+```
+
+## Spalten 15-19 {.smaller}
+
+```{r, echo = FALSE}
+DT::datatable(x[,15:19])
+```
+
+
+## Spalten 20-24 {.smaller}
+
+```{r, echo = FALSE}
+DT::datatable(x[,20:24])
+```
+
+
+## Spalten 25-29 {.smaller}
+
+```{r, echo = FALSE}
+DT::datatable(x[,25:29])
+```
+
+## Spalten 30-34 {.smaller}
+
+```{r, echo = FALSE}
+DT::datatable(x[,30:34])
+```
+
+## Spalten 35-39 {.smaller}
+
+```{r, echo = FALSE}
+DT::datatable(x[,35:39])
+```
+
+## Spalten 40-44 {.smaller}
+
+```{r, echo = FALSE}
+DT::datatable(x[,40:44])
+```
+
+
+## Spalten 45-49 {.smaller}
+
+```{r, echo = FALSE}
+DT::datatable(x[,45:49])
+```

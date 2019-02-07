@@ -1,8 +1,8 @@
 ---
 title: "Die Kunst des Zählens"
-subtitle: 'Workshop 'Text Mining politischer Kommunikation´''
+subtitle: "Workshop 'Text Mining politischer Kommunikation'"
 author: "Andreas Blaette"
-date: "Stand: 10. Oktober 2018"
+date: "Stand: 7. Februar 2019"
 output:
   ioslides_presentation:
     css: css/stylesheet.css
@@ -11,10 +11,6 @@ output:
   slidy_presentation: default
 editor_options:
   chunk_output_type: console
-vignette: >
-  %\VignetteIndexEntry{Die Kunst des Zählens}
-  %\VignetteEncoding{UTF-8}
-  %\VignetteEngine{knitr::rmarkdown}
 ---
 
 ## Die Kunst des Zählens {.smaller}
@@ -511,20 +507,3 @@ dt <- count(bt2008, p_attribute = c("word", "pos")) %>% subset(pos %in% c("NN", 
 - Für die Validierung von Zählergebnissen kann die Nutzung von Konkordanzen (nächster Foliensatz) entscheidend sein. Die CQP-Syntax, die hier nur angerissen wurde, wird im übernächsten Foliensatz erläutert.
 
 
-## Anhang {.smaller}
-
-- Welche Wortformen werden von einem Lemma erfasst?
-
-```{r, eval = FALSE}
-word <- get_token_stream("GERMAPARL", p_attribute = "word")
-Encoding(word) <- registry_get_encoding("GERMAPARL")
-lemma <- get_token_stream("GERMAPARL", p_attribute = "lemma")
-Encoding(lemma) <- registry_get_encoding("GERMAPARL")
-
-dt <- data.table(word = word, lemma = lemma)
-
-token <- "Flüchtling"
-q <- iconv(token, from = "UTF-8", to = "latin1")
-dt2 <- dt[lemma == q]
-dt2[, .N, by = .(word)]
-```
